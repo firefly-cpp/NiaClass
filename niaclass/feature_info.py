@@ -18,7 +18,7 @@ class _FeatureInfo:
         TODO
     """
 
-    def __init__(self, dtype, values = None, min_val = None, max_val = None, **kwargs):
+    def __init__(self, dtype, values=None, min_val=None, max_val=None, **kwargs):
         r"""Initialize instance of _FeatureInfo.
 
         Arguments:

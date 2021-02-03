@@ -18,10 +18,12 @@ class _Rule:
         TODO
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, value=None, min_val=None, max_val=None, **kwargs):
         r"""Initialize instance of _Rule.
 
         Arguments:
             TODO
         """
-        return None
+        self.value = value
+        self.min = min_val
+        self.max = max_val
