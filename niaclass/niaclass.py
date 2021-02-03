@@ -14,7 +14,7 @@ class NiaClass:
         Luka Pečnik
 
     License:
-        TODO
+        MIT
 
     Attributes:
         TODO
