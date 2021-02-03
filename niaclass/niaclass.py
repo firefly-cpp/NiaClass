@@ -1,4 +1,9 @@
 from pandas.api.types import is_numeric_dtype
+from niaclass.feature_info import _FeatureInfo
+from niaclass.rule import _Rule
+from NiaPy.task import StoppingTask
+from NiaPy.benchmarks import Benchmark
+from NiaPy.algorithms.utility import AlgorithmUtility
 
 __all__ = [
     'NiaClass'
@@ -20,9 +25,15 @@ class NiaClass:
         TODO
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, pop_size=90, num_evals=5000, algo='FireflyAlgorithm', **kwargs):
         r"""Initialize instance of NiaClass.
+
+        Arguments:
+            TODO
         """
+        self.__pop_size = pop_size
+        self.__num_evals = num_evals
+        self.__algo = algo
     
     def fit(self, x, y):
         r"""Fit NiaClass.
@@ -42,9 +53,32 @@ class NiaClass:
                 feats.append(_FeatureInfo(1, None, x[col].min(), x[col].max()))
             else:
                 feats.append(_FeatureInfo(0, x[col].unique(), None, None))
+        
+        D = 1 # 1 for control value that threshold is compared to.
+        for f in feats:
+            if f.dtype is 1:
+                """
+                * 1 for threshold that determines if the definite feature belongs to the rule or not.
+                * 2 for min and max mapping for each class (num_of_classes).
+                """
+                D += 1 + 2 * num_of_classes
+            else:
+                """
+                * 1 for threshold that determines if the definite feature belongs to the rule or not
+                """
+                D += 1 + num_of_classes
+        
+        algo = AlgorithmUtility().get_algorithm(self.__algo)
+        algo.NP = self.__pop_size
 
-        return None
-    
+        benchmark = _NiaClassBenchmark()
+        task = StoppingTask(
+            D=D,
+            nFES=self.__num_evals,
+            benchmark=benchmark
+        )
+        algo.run(task)
+
     def predict(self, x, **kwargs):
         r"""Predict class for each sample (row) in x.
 
@@ -56,29 +90,13 @@ class NiaClass:
         """
         return None
 
-class _FeatureInfo:
-    r"""Class for feature representation.
-    
-    Date:
-        2021
+class _NiaClassBenchmark(Benchmark):
+    def __init__(self):
+        Benchmark.__init__(self, 0.0, 1.0)
 
-    Author:
-        Luka Pečnik
-
-    License:
-        TODO
-
-    Attributes:
-        TODO
-    """
-
-    def __init__(self, dtype, values = None, min_val = None, max_val = None, **kwargs):
-        r"""Initialize instance of _FeatureInfo.
-
-        Arguments:
-            TODO
-        """
-        self.dtype = dtype
-        self.values = values
-        self.min = min_val
-        self.max = max_val
+    def function(self):
+        def evaluate(D, sol):
+            val = 0.0
+            for i in range(D): val += sol[i] ** 2
+            return val
+        return evaluate
