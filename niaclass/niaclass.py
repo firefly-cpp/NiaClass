@@ -36,6 +36,7 @@ class NiaClass:
         self.__pop_size = pop_size
         self.__num_evals = num_evals
         self.__algo = algo
+        self.__rules = None
 
     """
     def __split_train_test(self, x, y):
@@ -87,8 +88,7 @@ class NiaClass:
         algo = AlgorithmUtility().get_algorithm(self.__algo)
         algo.NP = self.__pop_size
 
-        #benchmark = _NiaClassBenchmark(feats, y.unique(), *self.__split_train_test(x, y))
-        benchmark = _NiaClassBenchmark(feats, y.unique(), x, y)
+        benchmark = _NiaClassBenchmark(feats, y.unique(), x, y, self.__get_class_score)
         task = StoppingTask(
             D=D,
             nFES=self.__num_evals,
@@ -96,29 +96,55 @@ class NiaClass:
         )
         algo.run(task)
 
-    def predict(self, x, **kwargs):
+        self.__rules = benchmark.get_rules()
+
+    def predict(self, x):
         r"""Predict class for each sample (row) in x.
 
         Arguments:
             x (pandas.core.frame.DataFrame): n samples to classify.
 
         Returns:
-            pandas.core.series.Series: n predicted classes.
+            array: n predicted classes.
         """
-        return None
+
+        """
+        y = []
+        for i in range(x.shape[0]):
+            current_score = -1
+            current_class = None
+            for j in range(self.__rules.shape[1]):
+                score = self.__get_class_func(self.__rules[j], self.__x.iloc[i])
+                if score > current_score:
+                    current_score = score
+                    current_class = self.__classes[j]
+            y.append(current_class)
+        return y
+        """
+    
+    def __get_class_score(self, rules, individual):
+        score = 0
+        for i in range(len(individual)):
+            if rules[i] is not None:
+                if rules[i].value is not None and individual[i] == rules[i].value:
+                    score += 1
+                elif individual[i] >= rules[i].min and individual[i] <= rules[i].max:
+                    score += 1
+        return score
 
 class _NiaClassBenchmark(Benchmark):
-    #def __init__(self, features, classes, x_train, y_train, x_test, y_test):
-    def __init__(self, features, classes, x, y):
+    def __init__(self, features, classes, x, y, get_class_func):
         Benchmark.__init__(self, 0.0, 1.0)
         self.__features = features
         self.__classes = classes
         self.__x = x
         self.__y = y
-        #self.__x_train = x_train
-        #self.__y_train = y_train
-        #self.__x_test = x_test
-        #self.__y_test = y_test
+        self.__current_best_score = float('inf')
+        self.__current_best_rules = None
+        self.__get_class_func = get_class_func
+    
+    def get_rules(self):
+        return self.__current_best_rules
 
     def __get_bin_index(self, value, number_of_bins):
         """Gets index of value's bin. Value must be between 0.0 and 1.0.
@@ -163,16 +189,6 @@ class _NiaClassBenchmark(Benchmark):
         
         return np.array(classes_rules)
     
-    def __get_class_score(self, rules, individual):
-        score = 0
-        for i in range(len(individual)):
-            if rules[i] is not None:
-                if rules[i].value is not None and individual[i] == rules[i].value:
-                    score += 1
-                elif individual[i] >= rules[i].min and individual[i] <= rules[i].max:
-                    score += 1
-        return score
-    
     def __accuracy(self, y_predicted):
         matches = self.__y.shape[0] - self.__y.compare(y_predicted).shape[0]
         return matches / self.__y.shape[0]
@@ -187,12 +203,17 @@ class _NiaClassBenchmark(Benchmark):
                 current_score = -1
                 current_class = None
                 for j in range(classes_rules.shape[1]):
-                    score = self.__get_class_score(classes_rules[j], self.__x.iloc[i])
+                    score = self.__get_class_func(classes_rules[j], self.__x.iloc[i])
                     if score > current_score:
                         current_score = score
                         current_class = self.__classes[j]
                 y.append(current_class)
             y = Series(y)
+
+            accuracy = -self.__accuracy(y)
+            if accuracy < self.__current_best_score:
+                self.__current_best_score = accuracy
+                self.__current_best_rules = classes_rules
             
-            return -self.__accuracy(y)
+            return accuracy
         return evaluate
