@@ -8,7 +8,8 @@ from NiaPy.algorithms.utility import AlgorithmUtility
 import numpy as np
 
 __all__ = [
-    'NiaClass'
+    'NiaClass',
+    '_NiaClassBenchmark'
 ]
 
 class NiaClass:
