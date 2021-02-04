@@ -24,33 +24,24 @@ class NiaClass:
         MIT
 
     Attributes:
-        TODO
+        __pop_size (int): Number of individuals in the fitting process.
+        __num_evals (int): Maximum evaluations in the fitting process.
+        __algo (str): Name of the optimization algorithm to use.
+        __rules (Dict[any, Iterable[_Rule]]): Best set of rules found in the optimization process.
     """
 
     def __init__(self, pop_size=90, num_evals=5000, algo='FireflyAlgorithm', **kwargs):
         r"""Initialize instance of NiaClass.
 
         Arguments:
-            TODO
+            pop_size (Optional(int)): Number of individuals in the fitting process.
+            num_evals (Optional(int)): Maximum evaluations in the fitting process.
+            algo (Optional(str)): Name of the optimization algorithm to use.
         """
         self.__pop_size = pop_size
         self.__num_evals = num_evals
         self.__algo = algo
         self.__rules = None
-
-    """
-    def __split_train_test(self, x, y):
-        indices = np.arange(x.shape[0])
-        num_training_instances = int(0.8 * x.shape[0])
-        np.random.shuffle(indices)
-        train_indices = indices[:num_training_instances]
-        test_indices = indices[num_training_instances:]
-
-        x_train, x_test = x.iloc[train_indices], x.iloc[test_indices]
-        y_train, y_test = y.iloc[train_indices], y.iloc[test_indices]
-
-        return x_train, y_train, x_test, y_test
-    """
     
     def fit(self, x, y):
         r"""Fit NiaClass.
@@ -107,22 +98,31 @@ class NiaClass:
         Returns:
             array: n predicted classes.
         """
+        if not self.__rules:
+            raise Exception('This instance is not fitter yet. Call \'fit\' with appropriate arguments before using this estimator.')
 
-        """
         y = []
-        for i in range(x.shape[0]):
+        for i, row in x.iterrows():
             current_score = -1
             current_class = None
-            for j in range(self.__rules.shape[1]):
-                score = self.__get_class_func(self.__rules[j], self.__x.iloc[i])
+            for k in self.__rules:
+                score = self.__get_class_score(self.__rules[k], row)
                 if score > current_score:
                     current_score = score
-                    current_class = self.__classes[j]
+                    current_class = k
             y.append(current_class)
         return y
-        """
     
     def __get_class_score(self, rules, individual):
+        r"""Calculate individual's score for the given set of rules.
+
+        Arguments:
+            rules (Iterable[_Rule]): n samples to classify.
+            individual (pandas.core.series.Series): List of an individual's features.
+
+        Returns:
+            float: Individual's score.
+        """
         score = 0
         for i in range(len(individual)):
             if rules[i] is not None:
@@ -133,7 +133,36 @@ class NiaClass:
         return score
 
 class _NiaClassBenchmark(Benchmark):
+    r"""Implementation of Benchmark class from NiaPy library.
+
+    Date:
+        2021
+
+    Author
+        Luka Pečnik
+
+    License:
+        MIT
+
+    Attributes:
+        __features (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
+        __classes (Iterable[any]): Unique classes.
+        __x (pandas.core.frame.DataFrame): individuals.
+        __y (pandas.core.series.Series): individuals' classes.
+        __current_best_score (float): current best score during optimization.
+        __current_best_rules (Dict[any, Iterable[_Rule]]): dictionary for mapping classes to their rules.
+        __get_class_func (Callable[[Iterable[_Rule], pandas.core.series.Series], float]): function for calculating individual's score for class.
+    """
     def __init__(self, features, classes, x, y, get_class_func):
+        r"""Initialize instance of _NiaClassBenchmark.
+
+        Arguments:
+            features (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
+            classes (Iterable[any]): Unique classes.
+            x (pandas.core.frame.DataFrame): individuals.
+            y (pandas.core.series.Series): individuals' classes.
+            get_class_func (Callable[[Iterable[_Rule], pandas.core.series.Series], float]): function for calculating individual's score for class.
+        """
         Benchmark.__init__(self, 0.0, 1.0)
         self.__features = features
         self.__classes = classes
@@ -144,6 +173,11 @@ class _NiaClassBenchmark(Benchmark):
         self.__get_class_func = get_class_func
     
     def get_rules(self):
+        r"""Returns current best set of rules.
+
+        Returns:
+            Iterable[_Rule]: Best set of rules found during the optimization process.
+        """
         return self.__current_best_rules
 
     def __get_bin_index(self, value, number_of_bins):
@@ -162,51 +196,84 @@ class _NiaClassBenchmark(Benchmark):
         return bin_index
     
     def __build_rules(self, sol):
-        classes_rules = [[] for i in range(self.__classes.shape[0])]
+        """Builds a set of rules for the input solution candidate.
+
+        Arguments:
+            sol (Iterable[float]): Solution candidate.
+        
+        Returns:
+            Dict[str, Iterable[_Rule]]: Built set of rules for each possible class.
+        """
+        classes_rules = {k: [] for k in self.__classes}
         
         sol_ind = 0
         for f in self.__features:
             current_feature_threshold = sol[sol_ind]
             sol_ind += 1
-            for i in range(self.__classes.shape[0]):
+            for k in classes_rules:
                 if current_feature_threshold >= sol[-1]:
                     if f.dtype == 1:
                         val1 = sol[sol_ind] * f.max + f.min
                         val2 = sol[sol_ind + 1] * f.max + f.min
                         (val1, val2) = (val2, val1) if val2 < val1 else (val1, val2)
 
-                        classes_rules[i].append(_Rule(None, val1, val2))
+                        classes_rules[k].append(_Rule(None, val1, val2))
                         sol_ind += 2
                     else:
-                        classes_rules[i].append(_Rule(f.values[self.__get_bin_index(sol[sol_ind + 1], len(f.values))], None, None))
+                        classes_rules[k].append(_Rule(f.values[self.__get_bin_index(sol[sol_ind], len(f.values))], None, None))
                         sol_ind += 1
                 else:
                     if f.dtype == 1:
                         sol_ind += 2
                     else:
                         sol_ind += 1
-                    classes_rules[i].append(None)
-        
-        return np.array(classes_rules)
+                    classes_rules[k].append(None)
+
+        # if all rules are None
+        if not np.any(np.array(classes_rules[list(classes_rules.keys())[0]], dtype=object)): return None
+
+        return classes_rules
     
     def __accuracy(self, y_predicted):
+        """Calculates accuracy of predicted classes.
+
+        Arguments:
+            y_predicted (pandas.core.series.Series): Predicted classes.
+        
+        Returns:
+            float: Calculated accuracy.
+        """
         matches = self.__y.shape[0] - self.__y.compare(y_predicted).shape[0]
         return matches / self.__y.shape[0]
 
     def function(self):
+        r"""Override Benchmark function.
+
+        Returns:
+            Callable[[int, numpy.ndarray[float]], float]: Fitness evaluation function.
+        """
         def evaluate(D, sol):
+            r"""Evaluate solution.
+
+            Arguments:
+                D (uint): Number of dimensionas.
+                sol (numpy.ndarray[float]): Individual of population/ possible solution.
+
+            Returns:
+                float: Fitness.
+            """
             classes_rules = self.__build_rules(sol)
-            if not np.any(classes_rules): return float('inf')
+            if not classes_rules: return float('inf')
 
             y = []
-            for i in range(self.__x.shape[0]):
+            for i, row in self.__x.iterrows():
                 current_score = -1
                 current_class = None
-                for j in range(classes_rules.shape[1]):
-                    score = self.__get_class_func(classes_rules[j], self.__x.iloc[i])
+                for k in classes_rules:
+                    score = self.__get_class_func(classes_rules[k], row)
                     if score > current_score:
                         current_score = score
-                        current_class = self.__classes[j]
+                        current_class = k
                 y.append(current_class)
             y = Series(y)
 

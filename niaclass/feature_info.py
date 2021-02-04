@@ -15,14 +15,20 @@ class _FeatureInfo:
         MIT
 
     Attributes:
-        TODO
+        dtype (int): Type of feature.
+        values (Optional(Iterable[any])): Possible categorical feature's values.
+        min (Optional(float)): Maximum numerical feature's value.
+        max (Optional(float)): Minimum numerical feature's value.
     """
 
     def __init__(self, dtype, values=None, min_val=None, max_val=None, **kwargs):
         r"""Initialize instance of _FeatureInfo.
 
         Arguments:
-            TODO
+            dtype (int): Type of feature.
+            values (Optional(Iterable[any])): Possible categorical feature's values.
+            min (Optional(float)): Maximum numerical feature's value.
+            max (Optional(float)): Minimum numerical feature's value.
         """
         self.dtype = dtype
         self.values = values

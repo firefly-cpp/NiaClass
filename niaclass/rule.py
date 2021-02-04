@@ -15,14 +15,18 @@ class _Rule:
         MIT
 
     Attributes:
-        TODO
+        value (Optional(any)): Categorical feature value.
+        min (Optional(float)): Maximum numerical feature's value.
+        max (Optional(float)): Minimum numerical feature's value.
     """
 
     def __init__(self, value=None, min_val=None, max_val=None, **kwargs):
         r"""Initialize instance of _Rule.
 
         Arguments:
-            TODO
+            value (Optional(any)): Categorical feature value.
+            min (Optional(float)): Maximum numerical feature's value.
+            max (Optional(float)): Minimum numerical feature's value.
         """
         self.value = value
         self.min = min_val
