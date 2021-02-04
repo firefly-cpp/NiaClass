@@ -19,6 +19,10 @@ class NiaClass:
     Author:
         Luka Pečnik
 
+    Reference:
+        The implementation is based on the following article:
+        Iztok Fister Jr., Iztok Fister, Dušan Fister, Grega Vrbančič, Vili Podgorelec. On the potential of the nature-inspired algorithms for pure binary classification. In. Computational science - ICCS 2020 : 20th International Conference, Proceedings. Part V. Cham: Springer, pp. 18-28. Lecture notes in computer science, 12141, 2020
+
     License:
         MIT
 
