@@ -6,6 +6,7 @@ from NiaPy.task import StoppingTask
 from NiaPy.benchmarks import Benchmark
 from NiaPy.algorithms.utility import AlgorithmUtility
 import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, f1_score, cohen_kappa_score
 
 __all__ = [
     'NiaClass',
@@ -31,20 +32,23 @@ class NiaClass:
     Attributes:
         __pop_size (int): Number of individuals in the fitting process.
         __num_evals (int): Maximum evaluations in the fitting process.
+        __score_func_name (Optional(str)): Used score function.
         __algo (str): Name of the optimization algorithm to use.
         __rules (Dict[any, Iterable[_Rule]]): Best set of rules found in the optimization process.
     """
 
-    def __init__(self, pop_size=90, num_evals=5000, algo='FireflyAlgorithm', **kwargs):
+    def __init__(self, pop_size=90, num_evals=5000, score_func_name='accuracy', algo='FireflyAlgorithm', **kwargs):
         r"""Initialize instance of NiaClass.
 
         Arguments:
             pop_size (Optional(int)): Number of individuals in the fitting process.
             num_evals (Optional(int)): Maximum evaluations in the fitting process.
+            score_func_name (Optional(str)): Used score function.
             algo (Optional(str)): Name of the optimization algorithm to use.
         """
         self.__pop_size = pop_size
         self.__num_evals = num_evals
+        self.__score_func_name = score_func_name
         self.__algo = algo
         self.__algo_args = kwargs
         self.__algo_args['NP'] = self.__pop_size
@@ -86,7 +90,7 @@ class NiaClass:
         algo = AlgorithmUtility().get_algorithm(self.__algo)
         algo.setParameters(**self.__algo_args)
 
-        benchmark = _NiaClassBenchmark(feats, y.unique(), x, y, self.__classify)
+        benchmark = _NiaClassBenchmark(feats, y.unique(), x, y, self.__score_func_name, self.__classify)
         task = StoppingTask(
             D=D,
             nFES=self.__num_evals,
@@ -170,9 +174,10 @@ class _NiaClassBenchmark(Benchmark):
         __y (pandas.core.series.Series): Individuals' classes.
         __current_best_score (float): Current best score during optimization.
         __current_best_rules (Dict[any, Iterable[_Rule]]): Dictionary for mapping classes to their rules.
+        __score_func_name (str): Used score function.
         __classify_func (Callable[[pandas.core.frame.DataFrame, Iterable[_Rule]], pandas.core.series.Series]): Function for classification.
     """
-    def __init__(self, features, classes, x, y, classify_func):
+    def __init__(self, features, classes, x, y, score_func_name, classify_func):
         r"""Initialize instance of _NiaClassBenchmark.
 
         Arguments:
@@ -180,6 +185,7 @@ class _NiaClassBenchmark(Benchmark):
             classes (Iterable[any]): Unique classes.
             x (pandas.core.frame.DataFrame): Individuals.
             y (pandas.core.series.Series): Individuals' classes.
+            score_func_name (str): Used score function.
             classify_func (Callable[[pandas.core.frame.DataFrame, Iterable[_Rule]], pandas.core.series.Series]): Function for classification.
         """
         Benchmark.__init__(self, 0.0, 1.0)
@@ -190,6 +196,7 @@ class _NiaClassBenchmark(Benchmark):
         self.__current_best_score = float('inf')
         self.__current_best_rules = None
         self.__classify_func = classify_func
+        self.__score_func_name = score_func_name
     
     def get_rules(self):
         r"""Returns current best set of rules.
@@ -235,6 +242,7 @@ class _NiaClassBenchmark(Benchmark):
                         val1 = sol[sol_ind] * f.max + f.min
                         val2 = sol[sol_ind + 1] * f.max + f.min
                         (val1, val2) = (val2, val1) if val2 < val1 else (val1, val2)
+                        # get shrinking_factor by calculating ratio between randomly determined and dataset interval
 
                         classes_rules[k].append(_Rule(None, val1, val2))
                         sol_ind += 2
@@ -253,17 +261,26 @@ class _NiaClassBenchmark(Benchmark):
 
         return classes_rules
     
-    def __accuracy(self, y_predicted):
-        """Calculates accuracy of predicted classes.
+    def __score(self, score_name, y_predicted):
+        """Calculates the score, using the specified score function's name, of predicted classes.
 
         Arguments:
+            score_name (str): Score function's name.
             y_predicted (pandas.core.series.Series): Predicted classes.
         
         Returns:
-            float: Calculated accuracy.
+            float: Calculated score.
         """
-        matches = self.__y.shape[0] - self.__y.compare(y_predicted).shape[0]
-        return matches / self.__y.shape[0]
+        if score_name == 'accuracy':
+            return accuracy_score(self.__y, y_predicted)
+        elif score_name == 'precision':
+            return precision_score(self.__y, y_predicted, average='weighted')
+        elif score_name == 'f1':
+            return f1_score(self.__y, y_predicted, average='weighted')
+        elif score_name == 'cohen_kappa':
+            return cohen_kappa_score(self.__y, y_predicted)
+        else:
+            raise Exception('Score function not implemented.')
 
     def function(self):
         r"""Override Benchmark function.
@@ -286,11 +303,12 @@ class _NiaClassBenchmark(Benchmark):
 
             y = self.__classify_func(self.__x, classes_rules)
 
-            accuracy = -self.__accuracy(Series(y, index=self.__y.index))
-            if accuracy < self.__current_best_score:
-                print(accuracy)
-                self.__current_best_score = accuracy
+            #1.5 - (
+            #accuracy = -self.__accuracy(Series(y, index=self.__y.index)) # + 0.5 * shrinking_factor)
+            score = -self.__score(self.__score_func_name, y)
+            if score < self.__current_best_score:
+                self.__current_best_score = score
                 self.__current_best_rules = classes_rules
             
-            return accuracy
+            return score
         return evaluate
