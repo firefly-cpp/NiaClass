@@ -286,7 +286,7 @@ class _NiaClassBenchmark(Benchmark):
 
             y = self.__classify_func(self.__x, classes_rules)
 
-            accuracy = -self.__accuracy(Series(y))
+            accuracy = -self.__accuracy(Series(y, index=self.__y.index))
             if accuracy < self.__current_best_score:
                 print(accuracy)
                 self.__current_best_score = accuracy
