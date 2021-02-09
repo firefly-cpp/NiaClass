@@ -242,7 +242,6 @@ class _NiaClassBenchmark(Benchmark):
                         val1 = sol[sol_ind] * f.max + f.min
                         val2 = sol[sol_ind + 1] * f.max + f.min
                         (val1, val2) = (val2, val1) if val2 < val1 else (val1, val2)
-                        # get shrinking_factor by calculating ratio between randomly determined and dataset interval
 
                         classes_rules[k].append(_Rule(None, val1, val2))
                         sol_ind += 2
@@ -256,7 +255,6 @@ class _NiaClassBenchmark(Benchmark):
                         sol_ind += 1
                     classes_rules[k].append(None)
 
-        # if all rules are None
         if not np.any(np.array(classes_rules[list(classes_rules.keys())[0]], dtype=object)): return None
 
         return classes_rules
@@ -303,8 +301,6 @@ class _NiaClassBenchmark(Benchmark):
 
             y = self.__classify_func(self.__x, classes_rules)
 
-            #1.5 - (
-            #accuracy = -self.__accuracy(Series(y, index=self.__y.index)) # + 0.5 * shrinking_factor)
             score = -self.__score(self.__score_func_name, y)
             if score < self.__current_best_score:
                 self.__current_best_score = score
