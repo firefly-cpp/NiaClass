@@ -125,7 +125,7 @@ class NiaClass:
             features (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
 
         Returns:
-            TODO
+            Dict[any, Iterable[Tuple[float, float, float]]]: Preprocessed numeric features for each class.
         """
         data = {}
         classes = y.unique()
@@ -134,16 +134,16 @@ class NiaClass:
             locations = y[y == c].index
             individuals = x.loc[locations]
             for i in range(len(feature_infos)):
-                if feature_infos[i].dtype == 1:
-                    col = individuals.iloc[:, i]
-                    col = col[~((col - col.mean()).abs() > 3 * col.std())]
-                    max_val = x.iloc[:, i].max()
+                if feature_infos[i].dtype == 1:     # if numeric feature
+                    col = individuals.iloc[:, i]    # get values of feature from x
+                    col = col[~((col - col.mean()).abs() > 3 * col.std())] # remove outliers if any
+                    max_val = x.iloc[:, i].max()    # get maximum value for normalization
                     if max_val == 0:
                         data[c].append((0, 0, 0))
                     else:
                         norm_min = col.min() / max_val
                         norm_max = col.max() / max_val
-                        data[c].append((norm_min, norm_max, norm_max - norm_min))
+                        data[c].append((norm_min, norm_max, norm_max - norm_min)) # normalized minimum, maximum and distance
         return data
     
     def __classify(self, x, rules):
@@ -258,7 +258,15 @@ class _NiaClassBenchmark(Benchmark):
         return bin_index
     
     def __overlapping_range(self, start1, start2, end1, end2):
-        """TODO
+        """Calculates the overlapping distance of two intervals [start1, end1] and [start2, end2].
+
+        Arguments:
+            start1 (float): Minimum value of the first interval.
+            start2 (float): Minimum value of the second interval.
+            end1 (float): Maximum value of the first interval.
+            end2 (float): Maximum value of the second interval.
+        Returns:
+            float: Overlap.
         """
         total_range = max([end1, end2]) - min([start1, start2])
         sum_of_ranges = (end1 - start1) + (end2 - start2)
@@ -271,10 +279,13 @@ class _NiaClassBenchmark(Benchmark):
             sol (Iterable[float]): Solution candidate.
         
         Returns:
-            Dict[str, Iterable[_Rule]]: Built set of rules for each possible class.
+            Tuple[Dict[str, Iterable[_Rule]], float, float]:
+                1. Built set of rules for each possible class.
+                2. Normalized sum of all interval differences.
+                3. Normalized sum of overlapping distances.
         """
         classes_rules = {k: [] for k in self.__classes}
-        interval_distances = []
+        interval_lengths = []
         overlaps = []
         
         sol_ind = 0
@@ -293,11 +304,13 @@ class _NiaClassBenchmark(Benchmark):
                         
                         (val1, val2) = (val2, val1) if val2 < val1 else (val1, val2)
                         (val1_norm, val2_norm) = (val1 / f.max, val2 / f.max)
-                        distance = val2_norm - val1_norm
-                        (val1_preprocessing, val2_preprocessing, distance_preprocessing) = self.__preprocessed_data[k][num_feature_index]
+                        length = val2_norm - val1_norm
+                        (val1_preprocessing, val2_preprocessing, length_preprocessing) = self.__preprocessed_data[k][num_feature_index]
                         overlapping = self.__overlapping_range(val1_norm, val1_preprocessing, val2_norm, val2_preprocessing)
 
-                        interval_distances.append(distance - distance_preprocessing)
+                        # difference in lengths of randomly selected interval and interval calculated from the training set (both normalized)
+                        interval_lengths.append(length - length_preprocessing)
+                        # overlapping distance of both (normalized) intervals
                         overlaps.append(overlapping)
 
                         classes_rules[k].append(_Rule(None, val1, val2))
@@ -317,7 +330,11 @@ class _NiaClassBenchmark(Benchmark):
         # if all rules are None
         if not np.any(np.array(classes_rules[list(classes_rules.keys())[0]], dtype=object)): return None, None, None
 
-        return classes_rules, (np.sum(interval_distances) / len(interval_distances)) if len(interval_distances) > 0 else 0, (np.sum(overlaps) / len(overlaps)) if len(overlaps) > 0 else 0
+        # rules,
+        # normalized sum of all interval differences (for all numeric features in all classes) - we assume that it is better if difference among intervals is smaller, hence we add this value multiplied by some weight in the fitness function,
+        # normalized sum of overlapping distances (for all numeric features in all classes) - we assume that it is better if overlapping distance in bigger, hende we subtract this value multiplied by some weight in the fitness function
+        # WE ARE DEALING WITH MINIMIZATION PROBLEM
+        return classes_rules, (np.sum(interval_lengths) / len(interval_lengths)) if len(interval_lengths) > 0 else 0, (np.sum(overlaps) / len(overlaps)) if len(overlaps) > 0 else 0
     
     def __score(self, score_name, y_predicted):
         """Calculates the score, using the specified score function's name, of predicted classes.
@@ -356,15 +373,13 @@ class _NiaClassBenchmark(Benchmark):
             Returns:
                 float: Fitness.
             """
-            classes_rules, distance_factor, overlaps = self.__build_rules(sol)
+            classes_rules, length_diffs, overlaps = self.__build_rules(sol)
             if not classes_rules: return float('inf')
 
             y = self.__classify_func(self.__x, classes_rules)
 
             #score = -self.__score(self.__score_func_name, y)
-            #score = -self.__score(self.__score_func_name, y) - 0.5 * overlaps
-            #score = -self.__score(self.__score_func_name, y) + 0.5 * distance_factor - 0.5 * overlaps
-            score = -self.__score(self.__score_func_name, y) + 0.5 * distance_factor
+            score = -self.__score(self.__score_func_name, y) + 0.5 * length_diffs - 0.5 * overlaps
             if score < self.__current_best_score:
                 self.__current_best_score = score
                 self.__current_best_rules = classes_rules
