@@ -10,6 +10,11 @@ To install NiaClass, use:
 $ pip install niaclass
 ```
 
+## Functionalities
+
+- binary classification,
+- ...
+
 ## Reference Papers (software is based on ideas from):
 
 [1] Iztok Fister Jr., Iztok Fister, Dušan Fister, Grega Vrbančič, Vili Podgorelec. [On the potential of the nature-inspired algorithms for pure binary classification](http://www.iztok-jr-fister.eu/static/publications/267.pdf). In. Computational science - ICCS 2020 : 20th International Conference, Proceedings. Part V. Cham: Springer, pp. 18-28. Lecture notes in computer science, 12141, 2020
