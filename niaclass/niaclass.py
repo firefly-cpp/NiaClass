@@ -73,6 +73,8 @@ class NiaClass:
             else:
                 feats.append(_FeatureInfo(0, x[col].unique(), None, None))
         
+        preprocessed_data = self.__preprocess_dataset(x, y, feats)
+
         D = 1 # 1 for control value that threshold is compared to.
         for f in feats:
             if f.dtype == 1:
@@ -90,7 +92,7 @@ class NiaClass:
         algo = AlgorithmUtility().get_algorithm(self.__algo)
         algo.setParameters(**self.__algo_args)
 
-        benchmark = _NiaClassBenchmark(feats, y.unique(), x, y, self.__score_func_name, self.__classify)
+        benchmark = _NiaClassBenchmark(feats, y.unique(), x, y, preprocessed_data, self.__score_func_name, self.__classify)
         task = StoppingTask(
             D=D,
             nFES=self.__num_evals,
@@ -113,6 +115,36 @@ class NiaClass:
             raise Exception('This instance is not fitter yet. Call \'fit\' with appropriate arguments before using this estimator.')
 
         return self.__classify(x, self.__rules)
+
+    def __preprocess_dataset(self, x, y, feature_infos):
+        r"""Extract useful information from dataset to use for fitting.
+
+        Arguments:
+            x (pandas.core.frame.DataFrame): Individuals.
+            y (pandas.core.series.Series): Individuals' classes.
+            features (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
+
+        Returns:
+            Dict[any, Iterable[Tuple[float, float, float]]]: Preprocessed numeric features for each class.
+        """
+        data = {}
+        classes = y.unique()
+        for c in classes:
+            data[c] = []
+            locations = y[y == c].index
+            individuals = x.loc[locations]
+            for i in range(len(feature_infos)):
+                if feature_infos[i].dtype == 1:     # if numeric feature
+                    col = individuals.iloc[:, i]    # get values of feature from x
+                    col = col[~((col - col.mean()).abs() > 3 * col.std())] # remove outliers if any
+                    max_val = x.iloc[:, i].max()    # get maximum value for normalization
+                    if max_val == 0:
+                        data[c].append((0, 0, 0))
+                    else:
+                        norm_min = col.min() / max_val
+                        norm_max = col.max() / max_val
+                        data[c].append((norm_min, norm_max, norm_max - norm_min)) # normalized minimum, maximum and distance
+        return data
     
     def __classify(self, x, rules):
         r"""Execute classification of individuals for the given rules.
@@ -137,8 +169,9 @@ class NiaClass:
             score = 0
             for i in range(len(individual)):
                 if rules[i] is not None:
-                    if rules[i].value is not None and individual[i] == rules[i].value:
-                        score += 1
+                    if rules[i].value:
+                        if individual[i] == rules[i].value:
+                            score += 1
                     elif individual[i] >= rules[i].min and individual[i] <= rules[i].max:
                         score += 1
             return score
@@ -172,12 +205,13 @@ class _NiaClassBenchmark(Benchmark):
         __classes (Iterable[any]): Unique classes.
         __x (pandas.core.frame.DataFrame): Individuals.
         __y (pandas.core.series.Series): Individuals' classes.
+        __preprocessed_data (Dict[str, any]): Dictionary containing preprocessed data for all classes.
         __current_best_score (float): Current best score during optimization.
         __current_best_rules (Dict[any, Iterable[_Rule]]): Dictionary for mapping classes to their rules.
         __score_func_name (str): Used score function.
         __classify_func (Callable[[pandas.core.frame.DataFrame, Iterable[_Rule]], pandas.core.series.Series]): Function for classification.
     """
-    def __init__(self, features, classes, x, y, score_func_name, classify_func):
+    def __init__(self, features, classes, x, y, preprocessed_data, score_func_name, classify_func):
         r"""Initialize instance of _NiaClassBenchmark.
 
         Arguments:
@@ -185,6 +219,7 @@ class _NiaClassBenchmark(Benchmark):
             classes (Iterable[any]): Unique classes.
             x (pandas.core.frame.DataFrame): Individuals.
             y (pandas.core.series.Series): Individuals' classes.
+            preprocessed_data (Dict[str, any]): Dictionary containing preprocessed data for all classes.
             score_func_name (str): Used score function.
             classify_func (Callable[[pandas.core.frame.DataFrame, Iterable[_Rule]], pandas.core.series.Series]): Function for classification.
         """
@@ -193,6 +228,7 @@ class _NiaClassBenchmark(Benchmark):
         self.__classes = classes
         self.__x = x
         self.__y = y
+        self.__preprocessed_data = preprocessed_data
         self.__current_best_score = float('inf')
         self.__current_best_rules = None
         self.__classify_func = classify_func
@@ -221,6 +257,21 @@ class _NiaClassBenchmark(Benchmark):
             bin_index -= 1
         return bin_index
     
+    def __overlapping_range(self, start1, start2, end1, end2):
+        """Calculates the overlapping distance of two intervals [start1, end1] and [start2, end2].
+
+        Arguments:
+            start1 (float): Minimum value of the first interval.
+            start2 (float): Minimum value of the second interval.
+            end1 (float): Maximum value of the first interval.
+            end2 (float): Maximum value of the second interval.
+        Returns:
+            float: Overlap.
+        """
+        total_range = max([end1, end2]) - min([start1, start2])
+        sum_of_ranges = (end1 - start1) + (end2 - start2)
+        return min([end1, end2]) - max([start1, start2]) if sum_of_ranges > total_range else 0
+    
     def __build_rules(self, sol):
         """Builds a set of rules for the input solution candidate.
 
@@ -228,11 +279,17 @@ class _NiaClassBenchmark(Benchmark):
             sol (Iterable[float]): Solution candidate.
         
         Returns:
-            Dict[str, Iterable[_Rule]]: Built set of rules for each possible class.
+            Tuple[Dict[str, Iterable[_Rule]], float, float]:
+                1. Built set of rules for each possible class.
+                2. Normalized sum of all interval differences.
+                3. Normalized sum of overlapping distances.
         """
         classes_rules = {k: [] for k in self.__classes}
+        interval_lengths = []
+        overlaps = []
         
         sol_ind = 0
+        num_feature_index = 0
         for f in self.__features:
             current_feature_threshold = sol[sol_ind]
             sol_ind += 1
@@ -241,7 +298,20 @@ class _NiaClassBenchmark(Benchmark):
                     if f.dtype == 1:
                         val1 = sol[sol_ind] * f.max + f.min
                         val2 = sol[sol_ind + 1] * f.max + f.min
+                        
+                        val1 = f.max if val1 > f.max else val1
+                        val2 = f.max if val2 > f.max else val2
+                        
                         (val1, val2) = (val2, val1) if val2 < val1 else (val1, val2)
+                        (val1_norm, val2_norm) = (val1 / f.max, val2 / f.max)
+                        length = val2_norm - val1_norm
+                        (val1_preprocessing, val2_preprocessing, length_preprocessing) = self.__preprocessed_data[k][num_feature_index]
+                        overlapping = self.__overlapping_range(val1_norm, val1_preprocessing, val2_norm, val2_preprocessing)
+
+                        # difference in lengths of randomly selected interval and interval calculated from the training set (both normalized)
+                        interval_lengths.append(length - length_preprocessing)
+                        # overlapping distance of both (normalized) intervals
+                        overlaps.append(overlapping)
 
                         classes_rules[k].append(_Rule(None, val1, val2))
                         sol_ind += 2
@@ -254,10 +324,17 @@ class _NiaClassBenchmark(Benchmark):
                     else:
                         sol_ind += 1
                     classes_rules[k].append(None)
+            if f.dtype == 1:
+                num_feature_index += 1
 
-        if not np.any(np.array(classes_rules[list(classes_rules.keys())[0]], dtype=object)): return None
+        # if all rules are None
+        if not np.any(np.array(classes_rules[list(classes_rules.keys())[0]], dtype=object)): return None, None, None
 
-        return classes_rules
+        # rules,
+        # normalized sum of all interval differences (for all numeric features in all classes) - we assume that it is better if difference among intervals is smaller, hence we add this value multiplied by some weight in the fitness function,
+        # normalized sum of overlapping distances (for all numeric features in all classes) - we assume that it is better if overlapping distance in bigger, hende we subtract this value multiplied by some weight in the fitness function
+        # WE ARE DEALING WITH MINIMIZATION PROBLEM
+        return classes_rules, (np.sum(interval_lengths) / len(interval_lengths)) if len(interval_lengths) > 0 else 0, (np.sum(overlaps) / len(overlaps)) if len(overlaps) > 0 else 0
     
     def __score(self, score_name, y_predicted):
         """Calculates the score, using the specified score function's name, of predicted classes.
@@ -296,12 +373,13 @@ class _NiaClassBenchmark(Benchmark):
             Returns:
                 float: Fitness.
             """
-            classes_rules = self.__build_rules(sol)
+            classes_rules, length_diffs, overlaps = self.__build_rules(sol)
             if not classes_rules: return float('inf')
 
             y = self.__classify_func(self.__x, classes_rules)
 
-            score = -self.__score(self.__score_func_name, y)
+            #score = -self.__score(self.__score_func_name, y)
+            score = -self.__score(self.__score_func_name, y) + 0.5 * length_diffs - 0.5 * overlaps
             if score < self.__current_best_score:
                 self.__current_best_score = score
                 self.__current_best_rules = classes_rules
