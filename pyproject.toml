@@ -5,7 +5,7 @@ description = ""
 authors = ["Luka Pečnik <lukapecnik96@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.6.1"
 NiaPy = "^2.0.0rc12"
 pandas = "^1.2.1"
 numpy = "^1.20.0"
