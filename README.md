@@ -7,7 +7,7 @@ NiaClass is a framework for solving classification tasks using nature-inspired a
 * **Free software:** MIT license,
 * **Python versions:** 3.6.x, 3.7.x, 3.8.x, 3.9.x.
 
-![NiaClass Architecture](.github/images/niaclass.png)
+<p align="center"><img src=".github/images/niaclass.png" alt="NiaClass" title="NiaClass"/></p>
 
 ## Installation
 
