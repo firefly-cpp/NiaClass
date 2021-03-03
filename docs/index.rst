@@ -30,6 +30,7 @@ The main documentation is organized into a couple of sections:
    :caption: Developer Documentation
 
    installation
+   testing
    documentation
    api/index
 
