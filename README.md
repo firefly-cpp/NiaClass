@@ -5,6 +5,7 @@
 NiaClass is a framework for solving classification tasks using nature-inspired algorithms. The framework is written fully in Python. Its goal is to find the best possible set of classification rules for the input data using the <a href="https://github.com/NiaOrg/NiaPy">NiaPy framework</a>, which is a popular Python collection of nature-inspired algorithms. The NiaClass classifier support numerical and categorical features.
 
 * **Free software:** MIT license,
+* **Documentation:** https://niaclass.readthedocs.io/en/latest/,
 * **Python versions:** 3.7.x, 3.8.x, 3.9.x.
 
 <p align="center"><img src=".github/images/niaclass.png" alt="NiaClass" title="NiaClass"/></p>
