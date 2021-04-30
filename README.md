@@ -35,6 +35,14 @@ In case you would like to try out the latest pre-release version of the framewor
 pip3 install niaclass --pre
 ```
 
+### Fedora Linux
+
+To install NiaClass on Fedora, use:
+
+```sh
+$ dnf install python-niaclass
+```
+
 ## Functionalities
 
 - Binary classification,
