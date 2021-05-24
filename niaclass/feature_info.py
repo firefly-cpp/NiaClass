@@ -1,10 +1,9 @@
-__all__ = [
-    '_FeatureInfo'
-]
+__all__ = ["_FeatureInfo"]
+
 
 class _FeatureInfo:
     r"""Class for feature representation.
-    
+
     Date:
         2021
 

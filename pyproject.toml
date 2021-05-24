@@ -13,8 +13,8 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7.0"
-NiaPy = "^2.0.0rc12"
+python = "^3.7.1"
+NiaPy = "^2.0.0rc15"
 pandas = "^1.2.1"
 numpy = "^1.20.0"
 scikit-learn = "^0.24.1"
@@ -23,6 +23,9 @@ scikit-learn = "^0.24.1"
 coveralls = "^3.0.1"
 Sphinx = "^3.5.1"
 sphinx-rtd-theme = "^0.5.1"
+autoflake = "^1.4"
+black = "^21.5b1"
+pre-commit = "^2.13.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

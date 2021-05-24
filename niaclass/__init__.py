@@ -1,7 +1,5 @@
 from niaclass.niaclass import NiaClass
 
-__all__ = [
-    'NiaClass'
-]
+__all__ = ["NiaClass"]
 
-__version__ = '0.1.0'
+__version__ = "0.1.0"

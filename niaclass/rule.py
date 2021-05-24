@@ -1,10 +1,9 @@
-__all__ = [
-    '_Rule'
-]
+__all__ = ["_Rule"]
+
 
 class _Rule:
     r"""Class for rule representation.
-    
+
     Date:
         2021
 
