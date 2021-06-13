@@ -1,13 +1,13 @@
 from pandas.api.types import is_numeric_dtype
 from niaclass.feature_info import _FeatureInfo
 from niaclass.rule import _Rule
-from niapy.task import StoppingTask
-from niapy.benchmarks import Benchmark
+from niapy.task import Task
+from niapy.problems import Problem
 from niapy.util.factory import get_algorithm
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, f1_score, cohen_kappa_score
 
-__all__ = ["NiaClass", "_NiaClassBenchmark"]
+__all__ = ["NiaClass", "_NiaClassProblem"]
 
 
 class NiaClass:
@@ -55,7 +55,7 @@ class NiaClass:
         self.__score_func_name = score_func_name
         self.__algo = algo
         self.__algo_args = kwargs
-        self.__algo_args["NP"] = self.__pop_size
+        self.__algo_args["population_size"] = self.__pop_size
         self.__rules = None
 
     def fit(self, x, y):
@@ -68,7 +68,6 @@ class NiaClass:
         Returns:
             None
         """
-        num_of_classes = y.nunique()
         feats = []
 
         for col in x:
@@ -79,24 +78,10 @@ class NiaClass:
 
         preprocessed_data = self.__preprocess_dataset(x, y, feats)
 
-        D = 1  # 1 for control value that threshold is compared to.
-        for f in feats:
-            if f.dtype == 1:
-                """
-                * 1 for threshold that determines if the definite feature belongs to the rule or not.
-                * 2 for min and max mapping for each class (num_of_classes).
-                """
-                D += 1 + 2 * num_of_classes
-            else:
-                """
-                * 1 for threshold that determines if the definite feature belongs to the rule or not
-                """
-                D += 1 + num_of_classes
-
         algo = get_algorithm(self.__algo)
         algo.set_parameters(**self.__algo_args)
 
-        benchmark = _NiaClassBenchmark(
+        problem = _NiaClassProblem(
             feats,
             y.unique(),
             x,
@@ -105,12 +90,10 @@ class NiaClass:
             self.__score_func_name,
             self.__classify,
         )
-        task = StoppingTask(
-            dimension=D, max_evals=self.__num_evals, benchmark=benchmark
-        )
+        task = Task(problem, max_evals=self.__num_evals)
         algo.run(task)
 
-        self.__rules = benchmark.get_rules()
+        self.__rules = problem.get_rules()
 
     def predict(self, x):
         r"""Predict class for each sample (row) in x.
@@ -134,7 +117,7 @@ class NiaClass:
         Arguments:
             x (pandas.core.frame.DataFrame): Individuals.
             y (pandas.core.series.Series): Individuals' classes.
-            features (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
+            feature_infos (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
 
         Returns:
             Dict[any, Iterable[Tuple[float, float, float]]]: Preprocessed numeric features for each class.
@@ -189,9 +172,7 @@ class NiaClass:
                     if rules[i].value:
                         if individual[i] == rules[i].value:
                             score += 1
-                    elif (
-                        individual[i] >= rules[i].min and individual[i] <= rules[i].max
-                    ):
+                    elif rules[i].min <= individual[i] <= rules[i].max:
                         score += 1
             return score
 
@@ -208,7 +189,7 @@ class NiaClass:
         return y
 
 
-class _NiaClassBenchmark(Benchmark):
+class _NiaClassProblem(Problem):
     r"""Implementation of Benchmark class from NiaPy library.
 
     Date:
@@ -235,7 +216,7 @@ class _NiaClassBenchmark(Benchmark):
     def __init__(
         self, features, classes, x, y, preprocessed_data, score_func_name, classify_func
     ):
-        r"""Initialize instance of _NiaClassBenchmark.
+        r"""Initialize instance of _NiaClassProblem.
 
         Arguments:
             features (Iterable[_FeatureInfo]): List of _FeatureInfo instances.
@@ -246,13 +227,27 @@ class _NiaClassBenchmark(Benchmark):
             score_func_name (str): Used score function.
             classify_func (Callable[[pandas.core.frame.DataFrame, Iterable[_Rule]], pandas.core.series.Series]): Function for classification.
         """
-        Benchmark.__init__(self, 0.0, 1.0)
+        num_of_classes = len(y)
+        dimension = 1  # 1 for control value that threshold is compared to.
+        for f in features:
+            if f.dtype == 1:
+                """
+                * 1 for threshold that determines if the definite feature belongs to the rule or not.
+                * 2 for min and max mapping for each class (num_of_classes).
+                """
+                dimension += 1 + 2 * num_of_classes
+            else:
+                """
+                * 1 for threshold that determines if the definite feature belongs to the rule or not
+                """
+                dimension += 1 + num_of_classes
+        super().__init__(dimension=dimension, lower=0.0, upper=1.0)
         self.__features = features
         self.__classes = classes
         self.__x = x
         self.__y = y
         self.__preprocessed_data = preprocessed_data
-        self.__current_best_score = float("inf")
+        self.__current_best_score = np.inf
         self.__current_best_rules = None
         self.__classify_func = classify_func
         self.__score_func_name = score_func_name
@@ -407,39 +402,30 @@ class _NiaClassBenchmark(Benchmark):
         else:
             raise Exception("Score function not implemented.")
 
-    def function(self):
-        r"""Override Benchmark function.
+    def _evaluate(self, x):
+        r"""Override fitness function.
+
+        Args:
+            x (numpy.ndarray): Solution vector.
 
         Returns:
-            Callable[[int, numpy.ndarray[float]], float]: Fitness evaluation function.
+            float: Fitness value of `x`
         """
 
-        def evaluate(D, sol):
-            r"""Evaluate solution.
+        classes_rules, length_diffs, overlaps = self.__build_rules(x)
+        if not classes_rules:
+            return np.inf
 
-            Arguments:
-                D (uint): Number of dimensionas.
-                sol (numpy.ndarray[float]): Individual of population/ possible solution.
+        y = self.__classify_func(self.__x, classes_rules)
 
-            Returns:
-                float: Fitness.
-            """
-            classes_rules, length_diffs, overlaps = self.__build_rules(sol)
-            if not classes_rules:
-                return float("inf")
+        # score = -self.__score(self.__score_func_name, y)
+        score = (
+            -self.__score(self.__score_func_name, y)
+            + 0.5 * length_diffs
+            - 0.5 * overlaps
+        )
+        if score < self.__current_best_score:
+            self.__current_best_score = score
+            self.__current_best_rules = classes_rules
 
-            y = self.__classify_func(self.__x, classes_rules)
-
-            # score = -self.__score(self.__score_func_name, y)
-            score = (
-                -self.__score(self.__score_func_name, y)
-                + 0.5 * length_diffs
-                - 0.5 * overlaps
-            )
-            if score < self.__current_best_score:
-                self.__current_best_score = score
-                self.__current_best_rules = classes_rules
-
-            return score
-
-        return evaluate
+        return score
