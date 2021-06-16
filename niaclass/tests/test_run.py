@@ -16,7 +16,7 @@ class RuleTestCase(TestCase):
         self.assertEqual(nc._NiaClass__score_func_name, "accuracy")
         self.assertEqual(nc._NiaClass__algo, "DifferentialEvolution")
         self.assertEqual(1, len(nc._NiaClass__algo_args))
-        self.assertEqual(10, nc._NiaClass__algo_args["NP"])
+        self.assertEqual(10, nc._NiaClass__algo_args["population_size"])
         self.assertIsNone(nc._NiaClass__rules)
 
         nc.fit(x, y)
@@ -35,7 +35,7 @@ class RuleTestCase(TestCase):
         self.assertEqual(nc._NiaClass__score_func_name, "accuracy")
         self.assertEqual(nc._NiaClass__algo, "FireflyAlgorithm")
         self.assertEqual(4, len(nc._NiaClass__algo_args))
-        self.assertEqual(10, nc._NiaClass__algo_args["NP"])
+        self.assertEqual(10, nc._NiaClass__algo_args["population_size"])
         self.assertEqual(0.5, nc._NiaClass__algo_args["alpha"])
         self.assertEqual(0.2, nc._NiaClass__algo_args["betamin"])
         self.assertEqual(1.0, nc._NiaClass__algo_args["gamma"])
