@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Pečnik
+  given-names: Luka
+  orcid: https://orcid.org/0000-0002-3897-9774
+- family-names: Fister
+  given-names: Iztok
+  orcid: https://orcid.org/0000-0002-9964-6957
+- family-names: Fister Jr.
+  given-names: Iztok
+  orcid: https://orcid.org/0000-0002-6418-1272
+title: "NiaClass"
+version: 0.1.2
+doi: 10.1007/978-3-030-78811-7_36
+date-released: 2021-06-27
+url: "https://github.com/lukapecnik/NiaClass"
