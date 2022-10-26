@@ -9,8 +9,8 @@ homepage = "https://github.com/lukapecnik/NiaClass"
 repository = "https://github.com/lukapecnik/NiaClass"
 readme = "README.md"
 include = [
-    "LICENSE",
-    "CITATION.md"
+    { path="LICENSE", format="sdist" },
+    { path="CITATION.md", format="sdist" }
 ]
 
 [tool.poetry.dependencies]
