@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "niaclass"
-version = "0.1.3"
+version = "0.1.4"
 description = "Python framework for building classifiers using nature-inspired algorithms"
 license = "MIT"
 authors = ["Luka Pečnik <lukapecnik96@gmail.com>", "Iztok Fister Jr. <iztok.fister1@um.si>"]
