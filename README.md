@@ -67,5 +67,5 @@ This framework is provided as-is, and there are no guarantees that it fits your 
 
 ## Cite us
 
-Pečnik L., Fister I., Fister Jr. I. (2021) NiaClass: Building Rule-Based Classification Models Using Nature-Inspired Algorithms. In: Tan Y., Shi Y. (eds) Advances in Swarm Intelligence. ICSI 2021. Lecture Notes in Computer Science, vol 12690. Springer, Cham.
+Pečnik L., Fister I., Fister Jr. I. (2021) [NiaClass: Building Rule-Based Classification Models Using Nature-Inspired Algorithms](https://link.springer.com/chapter/10.1007/978-3-030-78811-7_36). In: Tan Y., Shi Y. (eds) Advances in Swarm Intelligence. ICSI 2021. Lecture Notes in Computer Science, vol 12690. Springer, Cham.
 
