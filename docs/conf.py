@@ -21,11 +21,11 @@ sys.path.insert(0, os.path.abspath("../"))
 # -- Project information -----------------------------------------------------
 
 project = "NiaClass"
-copyright = "2021-2022, Luka Pečnik"
+copyright = "2021-2024, Luka Pečnik"
 author = "Luka Pečnik"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.4"
+release = "0.2.0"
 
 
 # -- General configuration ---------------------------------------------------
