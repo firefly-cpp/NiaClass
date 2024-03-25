@@ -17,7 +17,7 @@ include = [
 python = "^3.9"
 niapy = "^2.0.4"
 pandas = "^1.5.0"
-numpy = "^1.24.0"
+numpy = "^1.26.0"
 scikit-learn = "^1.2.0"
 
 [tool.poetry.dev-dependencies]
@@ -27,6 +27,7 @@ sphinx-rtd-theme = "^0.5.1"
 autoflake = "^1.4"
 black = "^21.5b1"
 pre-commit = "^2.13.0"
+pytest = "^6.2"
 
 [build-system]
 requires = ["poetry-core"]
