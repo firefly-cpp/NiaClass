@@ -5,12 +5,12 @@ description = "Python framework for building classifiers using nature-inspired a
 license = "MIT"
 authors = ["Luka Pečnik <lukapecnik96@gmail.com>", "Iztok Fister Jr. <iztok.fister1@um.si>"]
 keywords = ['classification', 'NiaPy', 'nature-inspired algorithms']
-homepage = "https://github.com/lukapecnik/NiaClass"
-repository = "https://github.com/lukapecnik/NiaClass"
+homepage = "https://github.com/firefly-cpp/NiaClass"
+repository = "https://github.com/firefly-cpp/NiaClass"
 readme = "README.md"
 include = [
     { path="LICENSE", format="sdist" },
-    { path="CITATION.md", format="sdist" }
+    { path="CITATION.cff", format="sdist" }
 ]
 
 [tool.poetry.dependencies]
