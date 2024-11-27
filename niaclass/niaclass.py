@@ -188,6 +188,23 @@ class NiaClass:
             y.append(current_class)
         return y
 
+    def print_rules(self):
+        """Print the best set of rules found during the optimization process.."""
+        if not self.__rules:
+            print("No rules available.")
+            return
+
+        print("Rules identified:")
+        for class_label, rules in self.__rules.items():
+            print(f"Class: {class_label}")
+            for i, rule in enumerate(rules):
+                if rule is None:
+                    print(f"  Feature {i}: No rule")
+                else:
+                    if rule.value is not None:
+                        print(f"  Feature {i}: Equals {rule.value}")
+                    else:
+                        print(f"  Feature {i}: Range [{rule.min}, {rule.max}]")
 
 class _NiaClassProblem(Problem):
     r"""Implementation of Benchmark class from NiaPy library.
