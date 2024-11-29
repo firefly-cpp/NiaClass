@@ -32,6 +32,7 @@ class NiaClass:
         __score_func_name (Optional(str)): Used score function.
         __algo (str): Name of the optimization algorithm to use.
         __rules (Dict[any, Iterable[_Rule]]): Best set of rules found in the optimization process.
+        __history (Iterable[_Rule]): History of all identified rules.
     """
 
     def __init__(
@@ -57,6 +58,7 @@ class NiaClass:
         self.__algo_args = kwargs
         self.__algo_args["population_size"] = self.__pop_size
         self.__rules = None
+        self.__history = []
 
     def fit(self, x, y):
         r"""Fit NiaClass.
@@ -94,6 +96,7 @@ class NiaClass:
         algo.run(task)
 
         self.__rules = problem.get_rules()
+        self.__history = problem.get_history()
 
     def predict(self, x):
         r"""Predict class for each sample (row) in x.
@@ -106,7 +109,7 @@ class NiaClass:
         """
         if not self.__rules:
             raise Exception(
-                "This instance is not fitter yet. Call 'fit' with appropriate arguments before using this estimator."
+                "This instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator."
             )
 
         return self.__classify(x, self.__rules)
@@ -188,8 +191,8 @@ class NiaClass:
             y.append(current_class)
         return y
 
-    def print_rules(self):
-        """Print the best set of rules found during the optimization process.."""
+    def print_best_rules(self):
+        """Print the best set of rules found during the optimization process."""
         if not self.__rules:
             print("No rules available.")
             return
@@ -205,6 +208,26 @@ class NiaClass:
                         print(f"  Feature {i}: Equals {rule.value}")
                     else:
                         print(f"  Feature {i}: Range [{rule.min}, {rule.max}]")
+
+    
+    def print_all_rules(self):
+        """Print the rules found during the optimization process."""
+        if len(self.__history) == 0:
+            print("No rules available.")
+            return
+
+        print("Rules identified:")
+        for iteration in self.__history:
+            for class_label, rules in iteration.items():
+                print(f"Class: {class_label}")
+                for i, rule in enumerate(rules):
+                    if rule is None:
+                        print(f"  Feature {i}: No rule")
+                    else:
+                        if rule.value is not None:
+                            print(f"  Feature {i}: Equals {rule.value}")
+                        else:
+                            print(f"  Feature {i}: Range [{rule.min}, {rule.max}]")
 
 class _NiaClassProblem(Problem):
     r"""Implementation of Benchmark class from NiaPy library.
@@ -228,6 +251,7 @@ class _NiaClassProblem(Problem):
         __current_best_rules (Dict[any, Iterable[_Rule]]): Dictionary for mapping classes to their rules.
         __score_func_name (str): Used score function.
         __classify_func (Callable[[pandas.core.frame.DataFrame, Iterable[_Rule]], pandas.core.series.Series]): Function for classification.
+        __rules (Iterable[_Rule]): List of all identified rules.
     """
 
     def __init__(
@@ -268,6 +292,7 @@ class _NiaClassProblem(Problem):
         self.__current_best_rules = None
         self.__classify_func = classify_func
         self.__score_func_name = score_func_name
+        self.__rules = []
 
     def get_rules(self):
         r"""Returns current best set of rules.
@@ -276,6 +301,14 @@ class _NiaClassProblem(Problem):
             Iterable[_Rule]: Best set of rules found during the optimization process.
         """
         return self.__current_best_rules
+    
+    def get_history(self):
+        r"""Returns list of all identified rules.
+        
+        Returns:
+            Iterable[_Rule]: List of all identified rules found during the optimization process.
+        """
+        return self.__rules
 
     def __get_bin_index(self, value, number_of_bins):
         """Gets index of value's bin. Value must be between 0.0 and 1.0.
@@ -441,6 +474,7 @@ class _NiaClassProblem(Problem):
             + 0.5 * length_diffs
             - 0.5 * overlaps
         )
+        self.__rules.append(classes_rules)
         if score < self.__current_best_score:
             self.__current_best_score = score
             self.__current_best_rules = classes_rules
